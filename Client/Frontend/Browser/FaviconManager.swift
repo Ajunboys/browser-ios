@@ -41,6 +41,10 @@ class FaviconManager : BrowserHelper {
         guard let icons = message.body as? [String: String], documentLocation = icons["documentLocation"] else { return }
         guard let currentUrl = NSURL(string: documentLocation) else { return }
 
+        if documentLocation.contains(WebServer.sharedInstance.base) {
+            return
+        }
+
         let site = Site(url: documentLocation, title: "")
         var favicons = [Favicon]()
         for item in icons {
@@ -49,7 +53,7 @@ class FaviconManager : BrowserHelper {
             }
 
             if let type = Int(item.1), _ = NSURL(string: item.0), iconType = IconType(rawValue: type) {
-                let favicon = Favicon(url: item.0, date: NSDate(), type: iconType)
+                let favicon = Favicon(url: item.0, date: NSDate(), type: iconType, belongsTo: currentUrl)
                 favicons.append(favicon)
             }
         }
@@ -57,12 +61,10 @@ class FaviconManager : BrowserHelper {
 
         let options = tab.isPrivate ? [SDWebImageOptions.LowPriority, SDWebImageOptions.CacheMemoryOnly] : [SDWebImageOptions.LowPriority]
 
-        for icon in favicons {
+        func downloadIcon(icon: Favicon) {
             if let iconUrl = NSURL(string: icon.url) {
                 manager.downloadImageWithURL(iconUrl, options: SDWebImageOptions(options), progress: nil, completed: { (img, err, cacheType, success, url) -> Void in
-                    let fav = Favicon(url: url.absoluteString,
-                        date: NSDate(),
-                        type: icon.type)
+                    let fav = Favicon(url: url.absoluteString, date: NSDate(), type: icon.type, belongsTo: currentUrl)
 
                     if let img = img {
                         fav.width = Int(img.size.width)
@@ -70,8 +72,9 @@ class FaviconManager : BrowserHelper {
                     } else {
                         if favicons.count == 1 && favicons[0].type == .Guess {
                             // No favicon is indicated in the HTML
-                            self.noFaviconAvailable(tab, atURL: currentUrl)
+                            ///self.noFaviconAvailable(tab, atURL: tabUrl)
                         }
+                        downloadBestIcon()
                         return
                     }
 
@@ -85,6 +88,46 @@ class FaviconManager : BrowserHelper {
                 })
             }
         }
+
+        func downloadBestIcon() {
+            if favicons.count < 1 {
+                return
+            }
+
+            var best: Favicon!
+            for icon in favicons {
+                if best == nil {
+                    best = icon
+                    continue
+                }
+                if icon.type.isPreferredTo(best.type) {
+                    best = icon
+                } else {
+                    // the last number in the url is likely a size (...72x72.png), use as a best-guess as to which icon comes next
+                    func extractNumberFromUrl(url: String) -> Int? {
+                        var end = (url as NSString).lastPathComponent
+                        end = end.regexReplacePattern("\\D", with: " ")
+                        var parts = end.componentsSeparatedByString(" ")
+                        for i in (0..<parts.count).reverse() {
+                            if let result = Int(parts[i]) {
+                                return result
+                            }
+                        }
+                        return nil
+                    }
+
+                    if let nextNum = extractNumberFromUrl(icon.url), bestNum = extractNumberFromUrl(best.url) {
+                        if nextNum > bestNum {
+                            best = icon
+                        }
+                    }
+                }
+            }
+            favicons = favicons.filter { $0 != best }
+            downloadIcon(best)
+        }
+        
+        downloadBestIcon()
     }
 
     func makeFaviconAvailable(tab: Browser, atURL url: NSURL, favicon: Favicon, withImage image: UIImage) {
