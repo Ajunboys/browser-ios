@@ -226,7 +226,23 @@ class HistoryPanel: SiteTableViewController, HomePanel {
         if let site = data[indexPath.row + category.offset] {
             if let cell = cell as? TwoLineTableViewCell {
                 cell.setLines(site.title, detailText: site.url)
-                cell.imageView?.setIcon(site.icon, withPlaceholder: FaviconFetcher.getDefaultFavicon(site.tileURL))
+                if let siteId = site.id, icon = iconForSiteId[siteId] {
+                    cell.imageView?.setIcon(icon, withPlaceholder: FaviconFetcher.defaultFavicon)
+                } else {
+                    cell.imageView?.setIcon(nil, withPlaceholder: FaviconFetcher.defaultFavicon)
+
+                    profile.favicons.getFavicon(forSite: site) >>== { cursor in
+                        if cursor.count < 1 {
+                            return
+                        }
+                        let favicons = cursor.asArray().flatMap{ $0 } // remove optionals
+                        guard let best = getBestFavicon(favicons) else { return }
+                        if let id = site.id {
+                            self.iconForSiteId[id] = best
+                        }
+                        cell.imageView?.setIcon(best, withPlaceholder: FaviconFetcher.defaultFavicon)
+                    }
+                }
             }
         }
 
