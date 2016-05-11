@@ -34,7 +34,8 @@
 
 - (id)initWithStyle:(UITableViewStyle)style
 {
-    return [self initWithPath:NSHomeDirectory()];
+    NSURL *p = [[NSFileManager defaultManager]  containerURLForSecurityApplicationGroupIdentifier:@"group.com.brave.ios.browser"];
+    return [self initWithPath:p.path];
 }
 
 - (id)initWithPath:(NSString *)path
