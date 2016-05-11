@@ -172,6 +172,9 @@ class BraveTopViewController : UIViewController {
     }
 
     func togglePanel(panel: SidePanelBaseViewController) {
+        #if FLEX_ON
+        FLEXManager.sharedManager().showExplorer()
+        #endif
         let willShow = panel.view.hidden
         leftSidePanelButtonAndUnderlay?.selected = willShow
         leftSidePanelButtonAndUnderlay?.hideUnderlay(!willShow)

@@ -18,4 +18,7 @@
 #import "TrackingProtectionCpp.h"
 #import "SwizzlingToHideSharePicker.h"
 #import "ODRefreshControl.h"
+#if FLEX_ON
+#import "FLEXManager.h"
+#endif
 #endif

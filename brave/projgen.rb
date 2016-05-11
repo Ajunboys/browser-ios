@@ -11,11 +11,15 @@ system('cd ..; rm -rf Client.xcodeproj; tar xzf Client.xcodeproj.tgz')
 begin
   fabric_keys = File.readlines(File.expand_path('~/.brave-fabric-keys'))
   system("sed -e 's/FABRIC_KEY_REMOVED/" + fabric_keys[0].strip + "/' BraveInfo.plist.template > BraveInfo.plist")
-  system("> xcconfig/.fabric-override.xcconfig")
+  system("> xcconfig/.local-def.xcconfig")
 rescue SystemCallError
   puts 'No Fabric'
   system("\\cp -f BraveInfo.plist.template BraveInfo.plist")
-  system("echo 'OTHER_SWIFT_FLAGS = -DBRAVE -DDEBUG -DNO_FABRIC' > xcconfig/.fabric-override.xcconfig")
+  system("echo 'LOCAL_DEF_OTHER_SWIFT_FLAGS = -DNO_FABRIC' > xcconfig/.local-def.xcconfig")
+end
+
+if ARGV[0] == 'flex'
+  system("echo 'LOCAL_DEF_OTHER_SWIFT_FLAGS = -DFLEX_ON\nLOCAL_DEF_GCC_PREPROCESSOR_DEFINITIONS = FLEX_ON=1\n' >> xcconfig/.local-def.xcconfig")
 end
 
 bundle_id = File.readlines('xcconfig/.bundle-id.xcconfig')[0].strip.delete(' ').delete('CUSTOM_BUNDLE_ID=')
@@ -56,6 +60,7 @@ def walk(proj, base, start, override_target = nil)
       if path =~ /(\.js)|(\.html)|(\.txt)|(\.xib)|(\.dat)/
         $client_resources.push(file_ref)
       else
+        # file was added to xcode file listing, if an optional target is set, it gets added to a build target
         path = path.sub('./', '')
         tname = override_target.nil? ? $hash_file_to_target[path] : override_target
         if tname != nil
@@ -89,6 +94,12 @@ Dir.chdir('..')
 ###################################
 
 brave = project.new_group('brave')
+
+if ARGV[0] == 'flex'
+    brave.new_group('ThirdParty')
+    walk(project, '.', './brave/ThirdParty', 'Client')
+end
+
 entitlements = brave.new_file('brave/Brave.entitlements')
 brave.new_file('brave/BraveInfo.plist')
 $client_resources.push(entitlements)
