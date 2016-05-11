@@ -78,6 +78,7 @@ class SiteTableViewController: UIViewController, UITableViewDelegate, UITableVie
         }
     }
     var data: Cursor<Site> = Cursor<Site>(status: .Success, msg: "No data set")
+    var iconForSiteId = [Int : Favicon]()
     var tableView = UITableView()
 
     override func viewDidLoad() {

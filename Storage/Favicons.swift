@@ -19,4 +19,6 @@ public protocol Favicons {
      * Returns the ID of the added favicon.
      */
     func addFavicon(icon: Favicon, forSite site: Site) -> Deferred<Maybe<Int>>
+
+    func getFavicon(forSite site: Site) -> Deferred<Maybe<Cursor<Favicon?>>>
 }
