@@ -186,11 +186,11 @@ extension SQLiteHistory: BrowserHistory {
         // Note that we will never match against a deleted item, because deleted items have no URL,
         // so we don't need to unset is_deleted here.
         if let host = site.url.asURL?.normalizedHost() {
-            let update = "UPDATE \(TableHistory) SET title = ?, local_modified = ?, should_upload = 1, domain_id = (SELECT id FROM \(TableDomains) where domain = ?) WHERE url = ?"
-            let updateArgs: Args? = [site.title, time, host, site.url]
-            if Logger.logPII {
-                log.debug("Setting title to \(site.title) for URL \(site.url)")
-            }
+            let update = "UPDATE \(TableHistory) SET local_modified = ?, should_upload = 1, domain_id = (SELECT id FROM \(TableDomains) where domain = ?) WHERE url = ?"
+            let updateArgs: Args? = [time, host, site.url]
+#if DEBUG
+            print("Setting title to \(site.title) for URL \(site.url)")
+#endif
             let error = conn.executeChange(update, withArgs: updateArgs)
             if error != nil {
                 log.warning("Update failed with \(error?.localizedDescription)")
@@ -332,7 +332,7 @@ extension SQLiteHistory: BrowserHistory {
     }
 
     public func getSitesByLastVisit(limit: Int) -> Deferred<Maybe<Cursor<Site>>> {
-        return self.getFilteredSitesByVisitDateWithLimit(limit, whereURLContains: nil, includeIcon: true)
+        return self.getFilteredSitesByVisitDateWithLimit(limit, whereURLContains: nil, includeIcon: false)
     }
 
     private class func basicHistoryColumnFactory(row: SDRow) -> Site {
@@ -363,12 +363,30 @@ extension SQLiteHistory: BrowserHistory {
     }
 
     private class func iconColumnFactory(row: SDRow) -> Favicon? {
-        if let iconType = row["iconType"] as? Int,
+        if  let belongsTo = row["belongs_to_domain"] as? String?,
+            let iconType = row["iconType"] as? Int,
             let iconURL = row["iconURL"] as? String,
             let iconDate = row["iconDate"] as? Double,
             let _ = row["iconID"] as? Int {
                 let date = NSDate(timeIntervalSince1970: iconDate)
-                return Favicon(url: iconURL, date: date, type: IconType(rawValue: iconType)!)
+            return Favicon(url: iconURL, date: date, type: IconType(rawValue: iconType)!, belongsTo: belongsTo != nil ? NSURL(string: belongsTo!) : nil)
+        }
+        return nil
+    }
+
+    private class func iconNativeNamesColumnFactory(row: SDRow) -> Favicon? {
+        if  let belongsTo = row["belongs_to_domain"] as? String?,
+            let iconType = row["type"] as? Int,
+            let iconURL = row["url"] as? String,
+            let iconDate = row["date"] as? Double,
+            let _ = row["id"] as? Int
+        {
+
+            let date = NSDate(timeIntervalSince1970: iconDate)
+            let f = Favicon(url: iconURL, date: date, type: IconType(rawValue: iconType)!, belongsTo: belongsTo != nil ? NSURL(string: belongsTo!) : nil)
+            f.width = row["width"] as? Int
+            f.height = row["height"] as? Int
+            return f
         }
         return nil
     }
@@ -651,6 +669,14 @@ extension SQLiteHistory: BrowserHistory {
 }
 
 extension SQLiteHistory: Favicons {
+
+    public func getFavicon(forSite site: Site) -> Deferred<Maybe<Cursor<Favicon?>>> {
+        let sql = "SELECT favicons.* from history, favicons, favicon_sites WHERE favicon_sites.faviconID = favicons.id AND history.id = favicon_sites.siteID AND history.id = ?"
+        let args: Args = [site.id]
+
+        return db.runQuery(sql, args: args, factory: SQLiteHistory.iconNativeNamesColumnFactory)
+    }
+
     // These two getter functions are only exposed for testing purposes (and aren't part of the public interface).
     func getFaviconsForURL(url: String) -> Deferred<Maybe<Cursor<Favicon?>>> {
         let sql = "SELECT iconID AS id, iconURL AS url, iconDate AS date, iconType AS type, iconWidth AS width FROM " +
@@ -707,9 +733,9 @@ extension SQLiteHistory: Favicons {
      * in the history table.
      */
     public func addFavicon(icon: Favicon, forSite site: Site) -> Deferred<Maybe<Int>> {
-        if Logger.logPII {
-            log.verbose("Adding favicon \(icon.url) for site \(site.url).")
-        }
+        #if DEBUG
+        print("Adding favicon \(icon.url) for site \(site.url).")
+        #endif
         func doChange(query: String, args: Args?) -> Deferred<Maybe<Int>> {
             var err: NSError?
             let res = db.withWritableConnection(&err) { (conn, inout err: NSError?) -> Int in
