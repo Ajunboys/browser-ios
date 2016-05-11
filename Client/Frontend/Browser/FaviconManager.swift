@@ -90,39 +90,7 @@ class FaviconManager : BrowserHelper {
         }
 
         func downloadBestIcon() {
-            if favicons.count < 1 {
-                return
-            }
-
-            var best: Favicon!
-            for icon in favicons {
-                if best == nil {
-                    best = icon
-                    continue
-                }
-                if icon.type.isPreferredTo(best.type) {
-                    best = icon
-                } else {
-                    // the last number in the url is likely a size (...72x72.png), use as a best-guess as to which icon comes next
-                    func extractNumberFromUrl(url: String) -> Int? {
-                        var end = (url as NSString).lastPathComponent
-                        end = end.regexReplacePattern("\\D", with: " ")
-                        var parts = end.componentsSeparatedByString(" ")
-                        for i in (0..<parts.count).reverse() {
-                            if let result = Int(parts[i]) {
-                                return result
-                            }
-                        }
-                        return nil
-                    }
-
-                    if let nextNum = extractNumberFromUrl(icon.url), bestNum = extractNumberFromUrl(best.url) {
-                        if nextNum > bestNum {
-                            best = icon
-                        }
-                    }
-                }
-            }
+            guard let best = getBestFavicon(favicons) else { return }
             favicons = favicons.filter { $0 != best }
             downloadIcon(best)
         }

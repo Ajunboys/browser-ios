@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import Storage
 
 func delay(delay:Double, closure:()->()) {
     dispatch_after(
@@ -111,3 +112,45 @@ func addSkipBackupAttributeToItemAtURL(url:NSURL) {
         print("Error excluding \(url.lastPathComponent) from backup \(error)")
     }
 }
+
+
+func getBestFavicon(favicons: [Favicon]) -> Favicon? {
+    if favicons.count < 1 {
+        return nil
+    }
+
+    var best: Favicon? = nil
+    for icon in favicons {
+        if best == nil {
+            best = icon
+            continue
+        }
+
+        if icon.type.isPreferredTo(best!.type) {
+            best = icon
+        } else if let width = icon.width, widthBest = best!.width where width > 0 && width > widthBest {
+            best = icon
+        } else {
+            // the last number in the url is likely a size (...72x72.png), use as a best-guess as to which icon comes next
+            func extractNumberFromUrl(url: String) -> Int? {
+                var end = (url as NSString).lastPathComponent
+                end = end.regexReplacePattern("\\D", with: " ")
+                var parts = end.componentsSeparatedByString(" ")
+                for i in (0..<parts.count).reverse() {
+                    if let result = Int(parts[i]) {
+                        return result
+                    }
+                }
+                return nil
+            }
+
+            if let nextNum = extractNumberFromUrl(icon.url), bestNum = extractNumberFromUrl(best!.url) {
+                if nextNum > bestNum {
+                    best = icon
+                }
+            }
+        }
+    }
+    return best
+}
+
