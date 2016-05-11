@@ -273,6 +273,8 @@ class BraveWebView: UIWebView {
             guard let docLoc = me.stringByEvaluatingJavaScriptFromString("document.location.href") else { return }
             if docLoc != me.prevDocumentLocation {
                 if let nd = me.navigationDelegate {
+                    me.title = me.stringByEvaluatingJavaScriptFromString("document.title") ?? ""
+                    print("Title:" + me.title)
                     BraveWebView.containerWebViewForCallbacks.legacyWebView = me
                     nd.webView?(BraveWebView.containerWebViewForCallbacks, didFinishNavigation: nullWKNavigation)
                 }
