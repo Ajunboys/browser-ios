@@ -27,7 +27,7 @@ class FaviconFetcherErrorType: MaybeErrorType {
 public class FaviconFetcher : NSObject, NSXMLParserDelegate {
     public static var userAgent: String = ""
     static let ExpirationTime = NSTimeInterval(60*60*24*7) // Only check for icons once a week
-    private static var characterToFaviconCache = [String : UIImage]()
+
     static var defaultFavicon: UIImage = {
         return UIImage(named: "defaultFavicon")!
     }()
@@ -148,7 +148,7 @@ public class FaviconFetcher : NSObject, NSXMLParserDelegate {
 
                     if let type = iconType where !bestType.isPreferredTo(type),
                         let iconUrl = NSURL(string: href, relativeToURL: url) {
-                            let icon = Favicon(url: iconUrl.absoluteString, date: NSDate(), type: type)
+                            let icon = Favicon(url: iconUrl.absoluteString, date: NSDate(), type: type, belongsTo: url)
                             // If we already have a list of Favicons going already, then add it…
                             if (type == bestType) {
                                 icons.append(icon)
@@ -162,7 +162,7 @@ public class FaviconFetcher : NSObject, NSXMLParserDelegate {
 
                 // If we haven't got any options icons, then use the default at the root of the domain.
                 if let url = NSURL(string: "/favicon.ico", relativeToURL: url) where icons.isEmpty {
-                    let icon = Favicon(url: url.absoluteString, date: NSDate(), type: .Guess)
+                    let icon = Favicon(url: url.absoluteString, date: NSDate(), type: .Guess, belongsTo: url)
                     icons = [icon]
                 }
             }
@@ -176,14 +176,14 @@ public class FaviconFetcher : NSObject, NSXMLParserDelegate {
         let manager = SDWebImageManager.sharedManager()
         let site = Site(url: siteUrl.absoluteString, title: "")
 
-        var fav = Favicon(url: url, type: icon.type)
+        var fav = Favicon(url: url, type: icon.type, belongsTo: siteUrl)
         if let url = url.asURL {
             manager.downloadImageWithURL(url,
                 options: SDWebImageOptions.LowPriority,
                 progress: nil,
                 completed: { (img, err, cacheType, success, url) -> Void in
                 fav = Favicon(url: url.absoluteString,
-                    type: icon.type)
+                    type: icon.type, belongsTo: siteUrl)
 
                 if let img = img where !PrivateBrowsing.singleton.isOn {
                     fav.width = Int(img.size.width)
@@ -201,31 +201,6 @@ public class FaviconFetcher : NSObject, NSXMLParserDelegate {
         }
 
         return deferred
-    }
-
-    // Returns the default favicon for a site based on the first letter of the site's domain
-    class func getDefaultFavicon(url: NSURL) -> UIImage {
-        if let letterFromUrl = url.baseDomain() {
-            let faviconLetter = String(letterFromUrl[letterFromUrl.startIndex]).uppercaseString
-            if let cachedFavicon = characterToFaviconCache[faviconLetter] {
-                return cachedFavicon
-            }
-
-            var faviconImage = UIImage()
-            let faviconLabel = UILabel(frame: CGRect(x: 0, y: 0, width: TwoLineCellUX.ImageSize, height: TwoLineCellUX.ImageSize))
-            faviconLabel.text = faviconLetter
-            faviconLabel.textAlignment = .Center
-            faviconLabel.font = UIFont.systemFontOfSize(18, weight: UIFontWeightMedium)
-            faviconLabel.textColor = UIColor.grayColor()
-            UIGraphicsBeginImageContextWithOptions(faviconLabel.bounds.size, false, 0.0)
-            faviconLabel.layer.renderInContext(UIGraphicsGetCurrentContext()!)
-            faviconImage = UIGraphicsGetImageFromCurrentImageContext()
-            UIGraphicsEndImageContext()
-
-            characterToFaviconCache[faviconLetter] = faviconImage
-            return faviconImage
-        }
-        return defaultFavicon
     }
 }
 
