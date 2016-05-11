@@ -39,7 +39,9 @@ public class RollingFileLogger: XCGLogger {
         if logDirectoryPath == nil {
             return
         }
-
+        var console = XCGConsoleLogDestination(owner: self)
+        console.showThreadName = true
+        addLogDestination(console)
         if let filename = filenameWithRoot(root, withDate: date) {
             removeLogDestination(fileLogIdentifierWithRoot(root))
             addLogDestination(XCGFileLogDestination(owner: self, writeToFile: filename, identifier: fileLogIdentifierWithRoot(root)))

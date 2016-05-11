@@ -51,11 +51,13 @@ public class Favicon: Identifiable {
     public var width: Int?
     public var height: Int?
     public let type: IconType
+    public var belongsToDomain: String = "" // BRAVE added
 
-    public init(url: String, date: NSDate = NSDate(), type: IconType) {
+    public init(url: String, date: NSDate = NSDate(), type: IconType, belongsTo: NSURL?) {
         self.url = url
         self.date = date
         self.type = type
+        self.belongsToDomain = belongsTo?.baseDomain() ?? ""
     }
 }
 

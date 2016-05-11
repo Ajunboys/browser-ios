@@ -4,6 +4,10 @@
 
 import Foundation
 
+let FaviconsTableColumnSpec_BelongsToDomain = " belongs_to_domain TEXT  "
+let FaviconsTableAlterAddColumn_BelongsToDomain = "ALTER TABLE \(TableFavicons) ADD COLUMN \(FaviconsTableColumnSpec_BelongsToDomain)"
+
+
 // This is our default favicons store.
 class FaviconsTable<T>: GenericTable<Favicon> {
     override var name: String { return TableFavicons }
@@ -20,7 +24,8 @@ class FaviconsTable<T>: GenericTable<Favicon> {
         args.append(item.height)
         args.append(item.date)
         args.append(item.type.rawValue)
-        return ("INSERT INTO \(TableFavicons) (url, width, height, date, type) VALUES (?,?,?,?,?)", args)
+        args.append(item.belongsToDomain)
+        return ("INSERT INTO \(TableFavicons) (url, width, height, date, type, belongs_to_domain) VALUES (?,?,?,?,?,?)", args)
     }
 
     override func getUpdateAndArgs(inout item: Favicon) -> (String, [AnyObject?])? {
@@ -30,7 +35,8 @@ class FaviconsTable<T>: GenericTable<Favicon> {
         args.append(item.date)
         args.append(item.type.rawValue)
         args.append(item.url)
-        return ("UPDATE \(TableFavicons) SET width = ?, height = ?, date = ?, type = ? WHERE url = ?", args)
+        args.append(item.belongsToDomain)
+        return ("UPDATE \(TableFavicons) SET width = ?, height = ?, date = ?, type = ?, belongs_to_domain = ? WHERE url = ?", args)
     }
 
     override func getDeleteAndArgs(inout item: Favicon?) -> (String, [AnyObject?])? {
@@ -46,7 +52,9 @@ class FaviconsTable<T>: GenericTable<Favicon> {
 
     override var factory: ((row: SDRow) -> Favicon)? {
         return { row -> Favicon in
-            let icon = Favicon(url: row["url"] as! String, date: NSDate(timeIntervalSince1970: row["date"] as! Double), type: IconType(rawValue: row["type"] as! Int)!)
+            let belongs_to_domain = row["belongs_to_domain"] as? String
+            let belongsToUrl: NSURL? = belongs_to_domain != nil ? NSURL(string: belongs_to_domain!) : nil
+            let icon = Favicon(url: row["url"] as! String, date: NSDate(timeIntervalSince1970: row["date"] as! Double), type: IconType(rawValue: row["type"] as! Int)!, belongsTo: belongsToUrl)
             icon.id = row["id"] as? Int
             return icon
         }
@@ -56,9 +64,9 @@ class FaviconsTable<T>: GenericTable<Favicon> {
         var args = [AnyObject?]()
         if let filter: AnyObject = options?.filter {
             args.append("%\(filter)%")
-            return ("SELECT id, url, date, type FROM \(TableFavicons) WHERE url LIKE ?", args)
+            return ("SELECT id, url, date, type, belongs_to_domain FROM \(TableFavicons) WHERE url LIKE ?", args)
         }
-        return ("SELECT id, url, date, type FROM \(TableFavicons)", args)
+        return ("SELECT id, url, date, type, belongs_to_domain FROM \(TableFavicons)", args)
     }
 
     func getIDFor(db: SQLiteDBConnection, obj: Favicon) -> Int? {
@@ -75,6 +83,14 @@ class FaviconsTable<T>: GenericTable<Favicon> {
     func insertOrUpdate(db: SQLiteDBConnection, obj: Favicon) -> Int? {
         var err: NSError? = nil
         let id = self.insert(db, item: obj, err: &err)
+        #if DEBUG
+            if let e = err {
+                if e.code == 19 {
+                    print("Favicon exists already")
+                }
+            }
+        #endif
+
         if id >= 0 {
             obj.id = id
             return id

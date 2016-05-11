@@ -561,7 +561,8 @@ class BookmarkFactory {
            let type = IconType(rawValue: faviconType) {
                 bookmark.favicon = Favicon(url: faviconURL,
                                            date: NSDate(timeIntervalSince1970: date),
-                                           type: type)
+                                           type: type,
+                                           belongsTo: NSURL(string: row["siteUri"] as! String))
         }
     }
 

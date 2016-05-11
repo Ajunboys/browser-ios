@@ -100,7 +100,8 @@ private let log = Logger.syncLogger
  * We rely on SQLiteHistory having initialized the favicon table first.
  */
 public class BrowserTable: Table {
-    static let DefaultVersion = 16    // Bug 1185038.
+    static let BRAVE_DB_VERSION = 17
+    static let DefaultVersion = BRAVE_DB_VERSION    // Bug 1185038.
 
     // TableInfo fields.
     var name: String { return "BROWSER" }
@@ -418,7 +419,8 @@ public class BrowserTable: Table {
         "width INTEGER, " +
         "height INTEGER, " +
         "type INTEGER NOT NULL, " +
-        "date REAL NOT NULL" +
+        "date REAL NOT NULL, " +
+        FaviconsTableColumnSpec_BelongsToDomain + // BRAVE added, track what domain this favicon belongs to
         ") "
 
         let history =
@@ -757,6 +759,12 @@ public class BrowserTable: Table {
                 historyVisitsView,
                 awesomebarBookmarksView,
                 awesomebarBookmarksWithIconsView]) {
+                return false
+            }
+        }
+
+        if from < 17 && to >= 17 {
+            if !self.run(db, queries: [FaviconsTableAlterAddColumn_BelongsToDomain]) {
                 return false
             }
         }
