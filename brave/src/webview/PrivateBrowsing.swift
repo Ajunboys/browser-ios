@@ -1,4 +1,5 @@
 import Shared
+import Deferred
 
 private let _singleton = PrivateBrowsing()
 
@@ -7,7 +8,7 @@ class PrivateBrowsing {
         return _singleton
     }
 
-    var isOn = false
+    private(set) var isOn = false
 
     var nonprivateCookies = [NSHTTPCookie: Bool]()
 
@@ -93,9 +94,11 @@ class PrivateBrowsing {
         webkitDirLocker(lock: true)
     }
 
-    func exit() {
+    func exit() -> Deferred<()> {
+        let result = Deferred<()>()
         if !isOn {
-            return
+            result.fill(())
+            return result
         }
 
         isOn = false
@@ -105,15 +108,20 @@ class PrivateBrowsing {
         BraveApp.setupCacheDefaults()
         NSNotificationCenter.defaultCenter().removeObserver(self)
 
-        CacheClearable().clear()
-        CookiesClearable().clear()
-
-        cookiesFileDiskOperation(.DeletePublicBackup)
-        let storage = NSHTTPCookieStorage.sharedHTTPCookieStorage()
-        for cookie in nonprivateCookies {
-            storage.setCookie(cookie.0)
+        let result1 = CacheClearable().clear()
+        let result2 = CookiesClearable().clear()
+        let both = result1.both(result2)
+        both.uponQueue(dispatch_get_main_queue()) {
+            res in
+            self.cookiesFileDiskOperation(.DeletePublicBackup)
+            let storage = NSHTTPCookieStorage.sharedHTTPCookieStorage()
+            for cookie in self.nonprivateCookies {
+                storage.setCookie(cookie.0)
+            }
+            self.nonprivateCookies = [NSHTTPCookie: Bool]()
+            result.fill()
         }
-        nonprivateCookies = [NSHTTPCookie: Bool]()
+        return result
     }
 
     @objc func cookiesChanged(info: NSNotification) {

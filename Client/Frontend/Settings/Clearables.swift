@@ -71,7 +71,7 @@ class CacheClearable: Clearable {
     }
 
     func clear() -> Success {
-        getApp().tabManager.removeAll()
+        getApp().tabManager.tabs.forEach{ $0.deleteWebView() }
 
         let result = Deferred<Maybe<()>>()
         // need event loop to run to autorelease UIWebViews fully
@@ -117,15 +117,15 @@ private func deleteLibraryFolderContents(folder: String, validateClearedExceptFo
     }
 
     #if DEBUG
-    guard let allowedFileNames = validateClearedExceptFor else { return }
-    contents = try manager.contentsOfDirectoryAtPath(dir.path!)
-    for content in contents {
-        for name in allowedFileNames {
-            if !content.contains(name) {
-                BraveApp.showErrorAlert(title: "Error clearing data", error: "Item not cleared: \(content)")
+        guard let allowedFileNames = validateClearedExceptFor else { return }
+        contents = try manager.contentsOfDirectoryAtPath(dir.path!)
+        for content in contents {
+            for name in allowedFileNames {
+                if !content.contains(name) {
+                    BraveApp.showErrorAlert(title: "Error clearing data", error: "Item not cleared: \(content)")
+                }
             }
         }
-    }
     #endif
 }
 
@@ -176,7 +176,7 @@ class CookiesClearable: Clearable {
     }
 
     func clear() -> Success {
-        getApp().tabManager.removeAll()
+        getApp().tabManager.tabs.forEach{ $0.deleteWebView() }
         NSUserDefaults.standardUserDefaults().synchronize()
 
         let result = Deferred<Maybe<()>>()

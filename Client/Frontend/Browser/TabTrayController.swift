@@ -505,9 +505,11 @@ class TabTrayController: UIViewController {
         } else {
             self.togglePrivateMode.backgroundColor = UIColor.clearColor()
             tabManager.removeAllPrivateTabsAndNotify(false)
-            PrivateBrowsing.singleton.exit()
-            delay(0.1) {
-                getApp().tabManager.selectTab(getApp().tabManager.tabs.first)
+            PrivateBrowsing.singleton.exit().upon {
+                res in 
+                delay(0.1) {
+                    getApp().tabManager.selectTab(getApp().tabManager.tabs.first)
+                }
             }
         }
 #else

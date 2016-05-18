@@ -4,6 +4,7 @@
 
 import UIKit
 import Shared
+import Deferred
 
 private let SectionToggles = 0
 private let SectionButton = 1
@@ -28,7 +29,7 @@ class ClearPrivateDataTableViewController: UITableViewController {
             (CacheClearable(), true),
             (CookiesClearable(), true),
             (PasswordsClearable(profile: self.profile), true),
-        ]
+            ]
     }()
 
     private lazy var toggles: [Bool] = {
@@ -107,7 +108,9 @@ class ClearPrivateDataTableViewController: UITableViewController {
     override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
         guard indexPath.section == SectionButton else { return }
 
-        func clearPrivateData() {
+        func clearPrivateData(secondAttempt secondAttempt: Bool = false) -> Deferred<()> {
+            let deferred = Deferred<()>()
+
             let toggles = self.toggles
             self.clearables
                 .enumerate()
@@ -121,8 +124,17 @@ class ClearPrivateDataTableViewController: UITableViewController {
                 }
                 .allSucceed()
                 .upon { result in
-                    if !result.isSuccess {
+                    if !result.isSuccess && !secondAttempt {
                         print("Private data NOT cleared successfully")
+                        delay(0.1) {
+                            // For some reason, a second attempt seems to always succeed
+                            clearPrivateData(secondAttempt: true)
+                        }
+                        return
+                    }
+
+                    if !result.isSuccess {
+                        print("Private data NOT cleared after 2 attempts")
                     }
 
                     self.profile.prefs.setObject(self.toggles, forKey: TogglesPrefKey)
@@ -131,38 +143,56 @@ class ClearPrivateDataTableViewController: UITableViewController {
                         // Disable the Clear Private Data button after it's clicked.
                         self.clearButtonEnabled = false
                         self.tableView.deselectRowAtIndexPath(indexPath, animated: true)
-
-                        // Cache and Cookie clearables will leave the selected tab with no UIWebView, so re-select it
-                        let browser = getApp().tabManager.selectedTab
-                        getApp().tabManager.selectTab(browser)
+                        deferred.fill()
                     }
             }
+            return deferred
         }
 
-        clearPrivateData()
+        getApp().tabManager.removeAll()
 
-        #if !BRAVE
-        // We have been asked to clear history and we have an account.
-        // (Whether or not it's in a good state is irrelevant.)
-        if self.toggles[HistoryClearableIndex] && profile.hasAccount() {
-            profile.syncManager.hasSyncedHistory().uponQueue(dispatch_get_main_queue()) { yes in
-                // Err on the side of warning, but this shouldn't fail.
-                let alert: UIAlertController
-                if yes.successValue ?? true {
-                    // Our local database contains some history items that have been synced.
-                    // Warn the user before clearing.
-                    alert = UIAlertController.clearSyncedHistoryAlert(clearPrivateData)
-                } else {
-                    alert = UIAlertController.clearPrivateDataAlert(clearPrivateData)
+        if PrivateBrowsing.singleton.isOn {
+            PrivateBrowsing.singleton.exit().upon {
+                clearPrivateData().upon {
+                    delay(0.5) {
+                        PrivateBrowsing.singleton.enter()
+                        if #available(iOS 9, *) {
+                            getApp().tabManager.selectTab (getApp().tabManager.addTab(nil, isPrivate: true))
+                        }
+                    }
                 }
-                self.presentViewController(alert, animated: true, completion: nil)
-                return
             }
         } else {
-            let alert = UIAlertController.clearPrivateDataAlert(clearPrivateData)
-            self.presentViewController(alert, animated: true, completion: nil)
+            delay(0.1) { // ensure GC has run
+                clearPrivateData().uponQueue(dispatch_get_main_queue()) {
+                    // TODO: add API to avoid add/remove
+                    getApp().tabManager.removeTab(getApp().tabManager.addTab()!, createTabIfNoneLeft: true)
+                }
+            }
         }
-     #endif
+
+        #if !BRAVE
+            // We have been asked to clear history and we have an account.
+            // (Whether or not it's in a good state is irrelevant.)
+            if self.toggles[HistoryClearableIndex] && profile.hasAccount() {
+                profile.syncManager.hasSyncedHistory().uponQueue(dispatch_get_main_queue()) { yes in
+                    // Err on the side of warning, but this shouldn't fail.
+                    let alert: UIAlertController
+                    if yes.successValue ?? true {
+                        // Our local database contains some history items that have been synced.
+                        // Warn the user before clearing.
+                        alert = UIAlertController.clearSyncedHistoryAlert(clearPrivateData)
+                    } else {
+                        alert = UIAlertController.clearPrivateDataAlert(clearPrivateData)
+                    }
+                    self.presentViewController(alert, animated: true, completion: nil)
+                    return
+                }
+            } else {
+                let alert = UIAlertController.clearPrivateDataAlert(clearPrivateData)
+                self.presentViewController(alert, animated: true, completion: nil)
+            }
+        #endif
         tableView.deselectRowAtIndexPath(indexPath, animated: false)
     }
 
