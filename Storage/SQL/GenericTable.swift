@@ -96,7 +96,7 @@ enum TableResult {
 }
 
 
-class GenericTable<T>: BaseTable {
+public class GenericTable<T>: BaseTable {
     typealias Type = T
 
     // Implementors need override these methods

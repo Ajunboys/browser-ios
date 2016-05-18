@@ -13,10 +13,6 @@ class URLProtocol: NSURLProtocol {
     var connection: NSURLConnection!
 
     override class func canInitWithRequest(request: NSURLRequest) -> Bool {
-        if (BraveApp.isBraveButtonBypassingFilters) {
-            return false
-        }
-
         //print("Request #\(requestCount++): URL = \(request.mainDocumentURL?.absoluteString)")
         if let scheme = request.URL?.scheme where !scheme.startsWith("http") {
             return false
@@ -27,6 +23,14 @@ class URLProtocol: NSURLProtocol {
         }
 
         guard let url = request.URL else { return false }
+
+        let ua = request.allHTTPHeaderFields?["User-Agent"]
+        if let webView = BraveWebView.userAgentToWebview(ua) {
+            if webView.braveShieldState.rawValue != BraveShieldState.StateEnum.AllOn.rawValue {
+                return false // TODO: for now we aren't handling individual on/off states, assume all are off
+            }
+        }
+
         let useCustomUrlProtocol =
             disableJavascript ||
             TrackingProtection.singleton.shouldBlock(request) ||

@@ -39,6 +39,7 @@ class BraveWebView: UIWebView {
     lazy var backForwardList: WebViewBackForwardList = { return WebViewBackForwardList(webView: self) } ()
     var progress: WebViewProgress?
     var certificateInvalidConnection:NSURLConnection?
+    var braveShieldState = BraveShieldState.StateEnum.AllOn
 
     var removeBvcObserversOnDeinit: ((UIWebView) -> Void)?
     var removeProgressObserversOnDeinit: ((UIWebView) -> Void)?
@@ -111,6 +112,10 @@ class BraveWebView: UIWebView {
     static var webViewCounter = 0
     // Needed to identify webview in url protocol
     func generateUniqueUserAgent() {
+        // synchronize code from this point on.
+        objc_sync_enter(self)
+        defer { objc_sync_exit(self) }
+
         BraveWebView.webViewCounter += 1
         if let webviewBuiltinUserAgent = BraveWebView.webviewBuiltinUserAgent {
             let userAgent = webviewBuiltinUserAgent + String(format:" _id/%06d", BraveWebView.webViewCounter)
@@ -130,6 +135,10 @@ class BraveWebView: UIWebView {
     }
 
     static func userAgentToWebview(let ua: String?) -> BraveWebView? {
+        // synchronize code from this point on.
+        objc_sync_enter(self)
+        defer { objc_sync_exit(self) }
+
         guard let ua = ua else { return nil }
         guard let loc = ua.rangeOfString("_id/") else {
             // the first created webview doesn't have this id set (see webviewBuiltinUserAgent to explain)
@@ -528,6 +537,12 @@ extension BraveWebView: UIWebViewDelegate {
             #if DEBUG
                 print("Page changed by shouldStartLoad: \(URL?.absoluteString ?? "")")
             #endif
+
+            if let profile = getApp().profile, browser = getApp().browserViewController.tabManager.tabForWebView(self) {
+                braveShieldState = profile.braveShieldPerDomain.forUrl(request.URL)
+                let urlBar = getApp().browserViewController.urlBar as! BraveURLBarView
+                urlBar.braveButton.selected = braveShieldState != BraveShieldState.StateEnum.AllOn
+            }
         }
 
         kvoBroadcast()

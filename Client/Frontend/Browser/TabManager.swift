@@ -196,6 +196,11 @@ class TabManager : NSObject {
             }
 
             self.limitInMemoryTabs()
+
+            if let wv = self.selectedTab?.webView {
+                let urlBar = getApp().browserViewController.urlBar as! BraveURLBarView
+                urlBar.braveButton.selected = wv.braveShieldState != BraveShieldState.StateEnum.AllOn
+            }
         }
     }
 
