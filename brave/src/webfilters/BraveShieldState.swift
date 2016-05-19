@@ -98,17 +98,20 @@ var braveShieldForDomain:BraveShieldTable? = nil
 extension BrowserProfile {
 
     public func braveShieldPerBaseDomain(url: NSURL) -> Deferred<BraveShieldState?> {
-        if braveShieldForDomain == nil {
-            braveShieldForDomain = BraveShieldTable.initialize(db)
-        }
         let deferred = Deferred<BraveShieldState?>()
 
-        braveShieldForDomain?.getRowForUrl(url).upon {
-            result in
-            if let success = result.successValue {
-                deferred.fill(BraveShieldState(state: success?.shieldState))
-            } else {
-                deferred.fill(nil)
+        succeed().upon() {_ in // move off main thread
+            if braveShieldForDomain == nil {
+                braveShieldForDomain = BraveShieldTable.initialize(self.db)
+            }
+
+            braveShieldForDomain?.getRowForUrl(url).upon {
+                result in
+                if let success = result.successValue {
+                    deferred.fill(BraveShieldState(state: success?.shieldState))
+                } else {
+                    deferred.fill(nil)
+                }
             }
         }
 
@@ -116,24 +119,27 @@ extension BrowserProfile {
     }
 
     public func setBraveShieldForBaseDomain(domain: String, state: Int) {
-        if braveShieldForDomain == nil {
-            braveShieldForDomain = BraveShieldTable.initialize(db)
-        }
-        var t = BraveShieldTableRow()
-        t.baseDomain = domain
-        t.shieldState = state
-        var err: NSError?
-        db.transaction(synchronous: true, err: &err) { (connection, inout err:NSError?) -> Bool in
-            if state == 0 {
-                braveShieldForDomain?.delete(connection, item: t, err: &err)
-                return true
+        succeed().upon() { _ in
+            if braveShieldForDomain == nil {
+                braveShieldForDomain = BraveShieldTable.initialize(self.db)
             }
 
-            let id = braveShieldForDomain?.insert(connection, item: t, err: &err)
-            if id < 0 {
-                braveShieldForDomain?.update(connection, item: t, err: &err)
+            var t = BraveShieldTableRow()
+            t.baseDomain = domain
+            t.shieldState = state
+            var err: NSError?
+            self.db.transaction(synchronous: true, err: &err) { (connection, inout err:NSError?) -> Bool in
+                if state == 0 {
+                    braveShieldForDomain?.delete(connection, item: t, err: &err)
+                    return true
+                }
+
+                let id = braveShieldForDomain?.insert(connection, item: t, err: &err)
+                if id < 0 {
+                    braveShieldForDomain?.update(connection, item: t, err: &err)
+                }
+                return true
             }
-            return true
         }
     }
 }
