@@ -258,7 +258,9 @@ public class BrowserProfile: Profile {
                 // We don't record a visit if no type was specified -- that means "ignore me".
                 let site = Site(url: url.absoluteString, title: title as String)
                 let visit = SiteVisit(site: site, date: NSDate.nowMicroseconds(), type: visitType)
-                history.addLocalVisit(visit)
+                succeed().upon() { _ in // move off main thread
+                    self.history.addLocalVisit(visit)
+                }
             }
 
             history.setTopSitesNeedsInvalidation()

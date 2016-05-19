@@ -127,6 +127,7 @@ public class SwiftData {
 
         if synchronous {
             var error: NSError? = nil
+            assert(!NSThread.isMainThread())
             dispatch_sync(connection.queue) {
                 error = cb(db: connection)
             }

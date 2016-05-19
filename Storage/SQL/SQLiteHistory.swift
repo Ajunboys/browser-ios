@@ -741,33 +741,39 @@ extension SQLiteHistory: Favicons {
         print("Adding favicon \(icon.url) for site \(site.url).")
         #endif
         func doChange(query: String, args: Args?) -> Deferred<Maybe<Int>> {
-            var err: NSError?
-            let res = db.withWritableConnection(&err) { (conn, inout err: NSError?) -> Int in
-                // Blind! We don't see failure here.
-                let id = self.favicons.insertOrUpdate(conn, obj: icon)
+            var deferredId = Deferred<Maybe<Int>>()
 
-                // Now set up the mapping.
-                err = conn.executeChange(query, withArgs: args)
-                if let err = err {
-                    log.error("Got error adding icon: \(err).")
-                    return 0
+            succeed().upon() { _res in // move off main thread
+                var err: NSError?
+                let res = self.db.withWritableConnection(&err) { (conn, inout err: NSError?) -> Int in
+                    // Blind! We don't see failure here.
+                    let id = self.favicons.insertOrUpdate(conn, obj: icon)
+
+                    // Now set up the mapping.
+                    err = conn.executeChange(query, withArgs: args)
+                    if let err = err {
+                        log.error("Got error adding icon: \(err).")
+                        return 0
+                    }
+
+                    // Try to update the favicon ID column in each bookmarks table. There can be
+                    // multiple bookmarks with a particular URI, and a mirror bookmark can be
+                    // locally changed, so either or both of these statements can update multiple rows.
+                    if let id = id {
+                        conn.executeChange("UPDATE \(TableBookmarksLocal) SET faviconID = ? WHERE bmkUri = ?", withArgs: [id, site.url])
+                        conn.executeChange("UPDATE \(TableBookmarksMirror) SET faviconID = ? WHERE bmkUri = ?", withArgs: [id, site.url])
+                    }
+
+                    return id ?? 0
                 }
 
-                // Try to update the favicon ID column in each bookmarks table. There can be
-                // multiple bookmarks with a particular URI, and a mirror bookmark can be
-                // locally changed, so either or both of these statements can update multiple rows.
-                if let id = id {
-                    conn.executeChange("UPDATE \(TableBookmarksLocal) SET faviconID = ? WHERE bmkUri = ?", withArgs: [id, site.url])
-                    conn.executeChange("UPDATE \(TableBookmarksMirror) SET faviconID = ? WHERE bmkUri = ?", withArgs: [id, site.url])
+                if res == 0 {
+                    deferredId = deferMaybe(DatabaseError(err: err))
+                } else {
+                    deferredId = deferMaybe(icon.id!)
                 }
-
-                return id ?? 0
             }
-
-            if res == 0 {
-                return deferMaybe(DatabaseError(err: err))
-            }
-            return deferMaybe(icon.id!)
+            return deferredId
         }
 
         let siteSubselect = "(SELECT id FROM \(TableHistory) WHERE url = ?)"
