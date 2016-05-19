@@ -373,28 +373,7 @@ class Browser: NSObject, BrowserWebViewDelegate {
     }
 
     func reload() {
-        if #available(iOS 9.0, *) {
-            let userAgent: String? = desktopSite ? UserAgent.desktopUserAgent() : nil
-            if (userAgent ?? "") != webView?.customUserAgent,
-               let currentItem = webView?.backForwardList.currentItem
-            {
-                webView?.customUserAgent = userAgent
-
-                // Reload the initial URL to avoid UA specific redirection
-                loadRequest(NSURLRequest(URL: currentItem.initialURL, cachePolicy: .ReloadIgnoringLocalCacheData, timeoutInterval: 60))
-                return
-            }
-        }
-
-        if let _ = webView?.reloadFromOrigin() {
-            log.info("reloaded zombified tab from origin")
-            return
-        }
-
-        if let webView = self.webView {
-            log.info("restoring webView from scratch")
-            restore(webView)
-        }
+        webView?.reloadFromOrigin()
     }
 
     func addHelper(helper: BrowserHelper, name: String) {

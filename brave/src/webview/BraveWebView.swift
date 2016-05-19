@@ -3,6 +3,7 @@
 import Foundation
 import WebKit
 import Shared
+import Deferred
 
 let kNotificationPageUnload = "kNotificationPageUnload"
 
@@ -39,7 +40,7 @@ class BraveWebView: UIWebView {
     lazy var backForwardList: WebViewBackForwardList = { return WebViewBackForwardList(webView: self) } ()
     var progress: WebViewProgress?
     var certificateInvalidConnection:NSURLConnection?
-    var braveShieldState = BraveShieldState.StateEnum.AllOn
+    var braveShieldState = Deferred<BraveShieldState>()
 
     var removeBvcObserversOnDeinit: ((UIWebView) -> Void)?
     var removeProgressObserversOnDeinit: ((UIWebView) -> Void)?
@@ -223,6 +224,7 @@ class BraveWebView: UIWebView {
             scrollView.setValue(NSValue(CGSize: CGSizeMake(rate, rate)), forKey: "_decelerationFactor")
         #endif
 
+        braveShieldState.fill(BraveShieldState.init(state: 0)!)
     }
 
     func internalProgressNotification(notification: NSNotification) {
@@ -279,9 +281,6 @@ class BraveWebView: UIWebView {
         NSNotificationCenter.defaultCenter().removeObserver(self, name: internalProgressChangedNotification, object: internalWebView)
         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(BraveWebView.internalProgressNotification(_:)), name: internalProgressChangedNotification, object: internalWebView)
 
-        if let url = request.URL where !url.absoluteString.contains(specialStopLoadUrl) {
-            setUrl(url, reliableSource: true)
-        }
         super.loadRequest(request)
     }
 
@@ -538,10 +537,20 @@ extension BraveWebView: UIWebViewDelegate {
                 print("Page changed by shouldStartLoad: \(URL?.absoluteString ?? "")")
             #endif
 
-            if let profile = getApp().profile, browser = getApp().browserViewController.tabManager.tabForWebView(self) {
-                braveShieldState = profile.braveShieldPerDomain.forUrl(request.URL)
-                let urlBar = getApp().browserViewController.urlBar as! BraveURLBarView
-                urlBar.braveButton.selected = braveShieldState != BraveShieldState.StateEnum.AllOn
+            if let profile = getApp().profile, url = request.URL {
+                braveShieldState = Deferred<BraveShieldState>()
+                profile.braveShieldPerBaseDomain(url).upon() {
+                    result in
+                    if let result = result, state = BraveShieldState(state: result.state) {
+                        self.braveShieldState.fill(state)
+                    } else {
+                        self.braveShieldState.fill(BraveShieldState.init(state: 0)!)
+                    }
+                    delay(0.2) { // update the UI
+                        let urlBar = getApp().browserViewController.urlBar as! BraveURLBarView
+                        urlBar.braveButton.selected = self.braveShieldState.value.state != BraveShieldState.StateEnum.AllOn.rawValue
+                    }
+                }
             }
         }
 

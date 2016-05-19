@@ -153,10 +153,14 @@ class BraveTopViewController : UIViewController {
     func onClickBraveButton(notification: NSNotification) {
         #if FLEX_ON
             FLEXManager.sharedManager().showExplorer()
-            return
         #endif
 
         guard let button = notification.object as? UIButton else { return }
+
+        let wv = browserViewController.tabManager.selectedTab?.webView
+        if let url = wv?.URL?.baseDomain() {
+            getApp().profile?.setBraveShieldForBaseDomain(url, state: button.selected ? 15 : 0)
+        }
 
         NSURLCache.sharedURLCache().removeAllCachedResponses()
         NSURLCache.sharedURLCache().diskCapacity = 0

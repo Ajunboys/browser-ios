@@ -103,8 +103,8 @@ public class BrowserTable: Table {
     static let DefaultVersion = 16    // Bug 1185038.
 
     // TableInfo fields.
-    var name: String { return "BROWSER" }
-    var version: Int { return BrowserTable.DefaultVersion }
+    public var name: String { return "BROWSER" }
+    public var version: Int { return BrowserTable.DefaultVersion }
 
     let sqliteVersion: Int32
     let supportsPartialIndices: Bool
@@ -410,7 +410,7 @@ public class BrowserTable: Table {
     "LEFT JOIN " +
     "\(TableFavicons) f ON f.id = b.faviconID"
 
-    func create(db: SQLiteDBConnection) -> Bool {
+    public func create(db: SQLiteDBConnection) -> Bool {
         let favicons =
         "CREATE TABLE IF NOT EXISTS \(TableFavicons) (" +
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -561,7 +561,7 @@ public class BrowserTable: Table {
                self.prepopulateRootFolders(db)
     }
 
-    func updateTable(db: SQLiteDBConnection, from: Int) -> Bool {
+    public func updateTable(db: SQLiteDBConnection, from: Int) -> Bool {
         let to = BrowserTable.DefaultVersion
         if from == to {
             log.debug("Skipping update from \(from) to \(to).")
@@ -829,11 +829,11 @@ public class BrowserTable: Table {
      * that we get back more than one.
      * Note that we don't check for views -- trust to luck.
      */
-    func exists(db: SQLiteDBConnection) -> Bool {
+    public func exists(db: SQLiteDBConnection) -> Bool {
         return db.tablesExist(AllTables)
     }
 
-    func drop(db: SQLiteDBConnection) -> Bool {
+    public func drop(db: SQLiteDBConnection) -> Bool {
         log.debug("Dropping all browser tables.")
         let additional = [
             "DROP TABLE IF EXISTS faviconSites" // We renamed it to match naming convention.

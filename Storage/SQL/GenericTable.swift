@@ -9,15 +9,15 @@ import Shared
 private let log = Logger.syncLogger
 
 // A protocol for information about a particular table. This is used as a type to be stored by TableTable.
-protocol TableInfo {
+public protocol TableInfo {
     var name: String { get }
     var version: Int { get }
 }
 
 // A wrapper class for table info coming from the TableTable. This should ever only be used internally.
-class TableInfoWrapper: TableInfo {
-    let name: String
-    let version: Int
+public class TableInfoWrapper: TableInfo {
+    public let name: String
+    public let version: Int
     init(name: String, version: Int) {
         self.name = name
         self.version = version
@@ -27,18 +27,18 @@ class TableInfoWrapper: TableInfo {
 /**
  * Something that knows how to construct part of a database.
  */
-protocol SectionCreator: TableInfo {
+public protocol SectionCreator: TableInfo {
     func create(db: SQLiteDBConnection) -> Bool
 }
 
-protocol SectionUpdater: TableInfo {
+public protocol SectionUpdater: TableInfo {
     func updateTable(db: SQLiteDBConnection, from: Int) -> Bool
 }
 
 /*
  * This should really be called "Section" or something like that.
  */
-protocol Table: SectionCreator, SectionUpdater {
+public protocol Table: SectionCreator, SectionUpdater {
     func exists(db: SQLiteDBConnection) -> Bool
     func drop(db: SQLiteDBConnection) -> Bool
 }
@@ -47,7 +47,7 @@ protocol Table: SectionCreator, SectionUpdater {
  * A table in our database. Note this doesn't have to be a real table. It might be backed by a join
  * or something else interesting.
  */
-protocol BaseTable: Table {
+public protocol BaseTable: Table {
     associatedtype Type
     func insert(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int?
     func update(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int
@@ -97,35 +97,37 @@ enum TableResult {
 
 
 public class GenericTable<T>: BaseTable {
-    typealias Type = T
+    public typealias Type = T
 
     // Implementors need override these methods
-    var name: String { return "" }
-    var version: Int { return 0 }
-    var rows: String { return "" }
-    var factory: ((row: SDRow) -> Type)? {
+    public var name: String { return "" }
+    public var version: Int { return 0 }
+    public var rows: String { return "" }
+    public var factory: ((row: SDRow) -> Type)? {
         return nil
     }
+
+    public init() {}
 
     // These methods take an inout object to avoid some runtime crashes that seem to be due
     // to using generics. Yay Swift!
-    func getInsertAndArgs(inout item: Type) -> (String, [AnyObject?])? {
+    public func getInsertAndArgs(inout item: Type) -> (String, [AnyObject?])? {
         return nil
     }
 
-    func getUpdateAndArgs(inout item: Type) -> (String, [AnyObject?])? {
+    public func getUpdateAndArgs(inout item: Type) -> (String, [AnyObject?])? {
         return nil
     }
 
-    func getDeleteAndArgs(inout item: Type?) -> (String, [AnyObject?])? {
+    public func getDeleteAndArgs(inout item: Type?) -> (String, [AnyObject?])? {
         return nil
     }
 
-    func getQueryAndArgs(options: QueryOptions?) -> (String, [AnyObject?])? {
+    public func getQueryAndArgs(options: QueryOptions?) -> (String, [AnyObject?])? {
         return nil
     }
 
-    func create(db: SQLiteDBConnection) -> Bool {
+    public func create(db: SQLiteDBConnection) -> Bool {
         if let err = db.executeChange("CREATE TABLE IF NOT EXISTS \(name) (\(rows))") {
             log.error("Error creating \(self.name) - \(err)")
             return false
@@ -133,18 +135,18 @@ public class GenericTable<T>: BaseTable {
         return true
     }
 
-    func updateTable(db: SQLiteDBConnection, from: Int) -> Bool {
+    public func updateTable(db: SQLiteDBConnection, from: Int) -> Bool {
         let to = self.version
         log.debug("Update table \(self.name) from \(from) to \(to)")
         return false
     }
 
-    func exists(db: SQLiteDBConnection) -> Bool {
+    public func exists(db: SQLiteDBConnection) -> Bool {
         let res = db.executeQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name=?", factory: StringFactory, withArgs: [name])
         return res.count > 0
     }
 
-    func drop(db: SQLiteDBConnection) -> Bool {
+    public func drop(db: SQLiteDBConnection) -> Bool {
         let sqlStr = "DROP TABLE IF EXISTS \(name)"
         let args =  [AnyObject?]()
         let err = db.executeChange(sqlStr, withArgs: args)
@@ -158,7 +160,7 @@ public class GenericTable<T>: BaseTable {
      * Returns nil or the last inserted row ID.
      * err will be nil if there was no error (e.g., INSERT OR IGNORE).
      */
-    func insert(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int? {
+    public func insert(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int? {
         if var site = item {
             if let (query, args) = getInsertAndArgs(&site) {
                 let previous = db.lastInsertedRowID
@@ -182,7 +184,7 @@ public class GenericTable<T>: BaseTable {
         return -1
     }
 
-    func update(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int {
+    public func update(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int {
         if var item = item {
             if let (query, args) = getUpdateAndArgs(&item) {
                 if let error = db.executeChange(query, withArgs: args) {
@@ -201,7 +203,7 @@ public class GenericTable<T>: BaseTable {
         return 0
     }
 
-    func delete(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int {
+    public func delete(db: SQLiteDBConnection, item: Type?, inout err: NSError?) -> Int {
         if var item: Type? = item {
             if let (query, args) = getDeleteAndArgs(&item) {
                 if let error = db.executeChange(query, withArgs: args) {
@@ -216,7 +218,7 @@ public class GenericTable<T>: BaseTable {
         return 0
     }
 
-    func query(db: SQLiteDBConnection, options: QueryOptions?) -> Cursor<Type> {
+    public func query(db: SQLiteDBConnection, options: QueryOptions?) -> Cursor<Type> {
         if let (query, args) = getQueryAndArgs(options) {
             if let factory = self.factory {
                 let c =  db.executeQuery(query, factory: factory, withArgs: args)

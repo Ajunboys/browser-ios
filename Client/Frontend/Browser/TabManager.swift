@@ -6,6 +6,7 @@ import Foundation
 import WebKit
 import Storage
 import Shared
+import Deferred
 
 private let log = Logger.browserLogger
 
@@ -199,7 +200,7 @@ class TabManager : NSObject {
 
             if let wv = self.selectedTab?.webView {
                 let urlBar = getApp().browserViewController.urlBar as! BraveURLBarView
-                urlBar.braveButton.selected = wv.braveShieldState != BraveShieldState.StateEnum.AllOn
+                urlBar.braveButton.selected = wv.braveShieldState.value.state != BraveShieldState.StateEnum.AllOn.rawValue
             }
         }
     }

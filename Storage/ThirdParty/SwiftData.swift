@@ -780,13 +780,13 @@ public class SDRow: SequenceType {
     }
 
     // Accessor getting column 'key' in the row
-    subscript(key: Int) -> AnyObject? {
+    public subscript(key: Int) -> AnyObject? {
         return getValue(key)
     }
 
     // Accessor getting a named column in the row. This (currently) depends on
     // the columns array passed into this Row to find the correct index.
-    subscript(key: String) -> AnyObject? {
+    public subscript(key: String) -> AnyObject? {
         get {
             if let index = columnNames.indexOf(key) {
                 return getValue(index)

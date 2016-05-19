@@ -115,7 +115,7 @@ public class BrowserDB {
 
     // Utility for table classes. They should call this when they're initialized to force
     // creation of the table in the database.
-    func createOrUpdate(tables: Table...) -> Bool {
+    public func createOrUpdate(tables: Table...) -> Bool {
         var success = true
 
         let doCreate = { (table: Table, connection: SQLiteDBConnection) -> () in
@@ -260,15 +260,15 @@ public class BrowserDB {
         return withConnection(flags: SwiftData.Flags.ReadWrite, err: &err, callback: callback)
     }
 
-    func withReadableConnection<T>(inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Cursor<T>) -> Cursor<T> {
+    public func withReadableConnection<T>(inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Cursor<T>) -> Cursor<T> {
         return withConnection(flags: SwiftData.Flags.ReadOnly, err: &err, callback: callback)
     }
 
-    func transaction(inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Bool) -> NSError? {
+    public func transaction(inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Bool) -> NSError? {
         return self.transaction(synchronous: true, err: &err, callback: callback)
     }
 
-    func transaction(synchronous synchronous: Bool=true, inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Bool) -> NSError? {
+    public func transaction(synchronous synchronous: Bool=true, inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> Bool) -> NSError? {
         return db.transaction(synchronous: synchronous) { connection in
             var err: NSError? = nil
             return callback(connection: connection, err: &err)
